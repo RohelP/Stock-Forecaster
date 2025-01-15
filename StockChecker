@@ -1,0 +1,77 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.tsa.stattools import adfuller
+
+# Load the data 
+data = pd.read_csv(r"path to csv file", index_col="Date", parse_dates=True)
+
+# Check stationarity with ADF test for 'Close' price
+close_data = data["Close"]  # Assuming "Close" column contains the stock price
+adf_result = adfuller(close_data)
+print(f"ADF Statistic (Close): {adf_result[0]}")
+print(f"p-value (Close): {adf_result[1]}")
+if adf_result[1] > 0.05:
+    print("Close data is non-stationary. Differencing is needed.")
+else:
+    print("Close data is stationary. No differencing needed.")
+
+# Fit ARIMA model for 'Close' price
+model_close = ARIMA(close_data, order=(1, 1, 1))  # Adjust order as needed
+model_fit_close = model_close.fit()
+print(model_fit_close.summary())
+
+# Forecast for the next 14 days for 'Close' price
+forecast_steps = 14
+forecast_close = model_fit_close.get_forecast(steps=forecast_steps)
+forecast_index = pd.date_range(start=close_data.index[-1] + pd.Timedelta(days=1), periods=forecast_steps)
+forecast_close_series = pd.Series(forecast_close.predicted_mean.values, index=forecast_index)
+
+# Check stationarity with ADF test for 'Open' price
+open_data = data["Open"]  # Assuming "Open" column contains the stock price
+adf_result_open = adfuller(open_data)
+print(f"ADF Statistic (Open): {adf_result_open[0]}")
+print(f"p-value (Open): {adf_result_open[1]}")
+if adf_result_open[1] > 0.05:
+    print("Open data is non-stationary. Differencing is needed.")
+else:
+    print("Open data is stationary. No differencing needed.")
+
+# Fit ARIMA model for 'Open' price using the same parameters as for 'Close'
+model_open = ARIMA(open_data, order=(1, 1, 1))  # Adjust order as needed
+model_fit_open = model_open.fit()
+print(model_fit_open.summary())
+
+# Forecast for the next 14 days for 'Open' price
+forecast_open = model_fit_open.get_forecast(steps=forecast_steps)
+forecast_open_series = pd.Series(forecast_open.predicted_mean.values, index=forecast_index)
+
+# Display the forecasted open and close prices
+forecast_prices = pd.DataFrame({
+    "Forecasted Open Price": forecast_open_series,
+    "Forecasted Close Price": forecast_close_series
+})
+
+print("\nForecasted Open and Close Prices for the next 14 days:")
+print(forecast_prices)
+
+# Convert PeriodIndex to DatetimeIndex for plotting
+if isinstance(forecast_close_series.index, pd.PeriodIndex):
+    forecast_close_series.index = forecast_close_series.index.to_timestamp()
+if isinstance(forecast_open_series.index, pd.PeriodIndex):
+    forecast_open_series.index = forecast_open_series.index.to_timestamp()
+
+# Plot the historical 'Close' price data and forecasted values
+plt.figure(figsize=(10, 6))
+plt.plot(close_data, label="Historical Close Price")
+plt.plot(forecast_close_series, label="Forecasted Close Price", color="red")
+
+# Plot the forecasted 'Open' price data (Optional, if you want to visualize)
+plt.plot(forecast_open_series, label="Forecasted Open Price", color="green")
+
+plt.title("Tesla Stock Price Forecast (Open and Close Prices)")
+plt.xlabel("Date")
+plt.ylabel("Price")
+plt.legend()
+plt.show()
